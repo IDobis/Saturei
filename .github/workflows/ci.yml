@@ -24,8 +24,17 @@ jobs:
           npm run lint
           npm run build
 
+      # The Visual Studio version on `windows-latest` changes over time, so detect it instead of hardcoding one.
       - name: Configure
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+        shell: pwsh
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $major = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationVersion).Split('.')[0]
+          $years = @{ '15' = '2017'; '16' = '2019'; '17' = '2022'; '18' = '2026' }
+          if (-not $years.ContainsKey($major)) { throw "Unsupported Visual Studio major version '$major'" }
+          $generator = "Visual Studio $major $($years[$major])"
+          Write-Host "Using generator: $generator"
+          cmake -S . -B build -G $generator -A x64
 
       - name: Build
         run: cmake --build build --config Release
