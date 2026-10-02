@@ -1,0 +1,27 @@
+# Build C++ (CMake)
+/build/
+/out/
+CMakeUserPresets.json
+
+# Pacotes de teste/release (distribuir por GitHub Releases, nao pelo repositorio)
+/dist/
+
+# UI (Vite)
+ui/node_modules/
+ui/dist/
+*.log
+
+# Prints de depuracao na raiz
+/image.png
+
+# Editor / SO
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+Thumbs.db
+.DS_Store
+
+# Claude Code (config local)
+.claude/settings.local.json
