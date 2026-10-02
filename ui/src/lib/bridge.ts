@@ -1,61 +1,58 @@
-// Ponte UI <-> core C++ (WebView2). Em `npm run dev` (navegador) cai num mock.
-export type GpuInfo = { vendor: 'nvidia' | 'amd' | 'intel' | 'unknown'; name: string; trueSaturation: boolean }
+// Typed JSON protocol between this UI and the native host (WebView2). See docs/ARCHITECTURE.md.
+// Outside the app (e.g. `npm run dev` in a browser) a simulated host answers instead.
+
+import { createDevHost } from './devHost'
 
 export type Profile = {
   id: string
   name: string
-  exe: string // ex.: "cs2.exe"; "" = Windows (perfil padrão)
+  exe: string // executable file name, e.g. "cs2.exe"; empty for the Windows profile
   enabled: boolean
-  saturation: number // 0..300 (%), 100 = neutro
-  contrast: number
+  saturation: number // 0..300 (%), 100 = unchanged
+  contrast: number // 0..100, 50 = unchanged
 }
 
+export type HostApp = { exe: string; title: string }
+export type WindowAction = 'minimize' | 'maximize' | 'close'
+
+/** UI -> host */
 export type ToHost =
   | { type: 'ready' }
   | { type: 'setProfile'; profile: Profile }
-  | { type: 'deleteProfile'; id: string }
   | { type: 'select'; id: string }
+  | { type: 'deleteProfile'; id: string }
   | { type: 'listProcesses' }
-  | { type: 'window'; action: 'minimize' | 'maximize' | 'close' }
+  | { type: 'window'; action: WindowAction }
 
+/** host -> UI */
 export type FromHost =
-  | { type: 'init'; method: 'nvapi' | 'magnification' | 'gamma-ramp'; gpus: GpuInfo[]; profiles: Profile[]; activeId: string | null }
+  | { type: 'init'; profiles: Profile[]; activeId: string | null }
   | { type: 'active'; id: string | null }
+  | { type: 'processes'; list: HostApp[] }
   | { type: 'maximized'; value: boolean }
-  | { type: 'processes'; list: { exe: string; title: string }[] }
 
-type Wv = { postMessage(m: unknown): void; addEventListener(t: 'message', cb: (e: { data: FromHost }) => void): void }
-const wv = (window as unknown as { chrome?: { webview?: Wv } }).chrome?.webview
+type Listener = (message: FromHost) => void
 
-export const inHost = !!wv
-
-export function send(msg: ToHost) {
-  if (wv) wv.postMessage(msg)
-  else {
-    console.debug('[bridge:mock] ->', msg)
-    if (msg.type === 'listProcesses')
-      queueMicrotask(() => mockCb?.({ type: 'processes', list: [{ exe: 'cs2.exe', title: 'Counter-Strike 2' }, { exe: 'chrome.exe', title: 'YouTube' }] }))
-  }
+type WebView = {
+  postMessage(message: unknown): void
+  addEventListener(type: 'message', handler: (event: { data: FromHost }) => void): void
 }
 
-let mockCb: ((m: FromHost) => void) | undefined
+const webview = (window as unknown as { chrome?: { webview?: WebView } }).chrome?.webview
+const listeners = new Set<Listener>()
 
-export function onHost(cb: (m: FromHost) => void) {
-  mockCb = cb
-  if (wv) {
-    wv.addEventListener('message', (e) => cb(e.data))
-    return
-  }
-  queueMicrotask(() =>
-    cb({
-      type: 'init',
-      method: 'magnification',
-      activeId: 'win',
-      gpus: [{ vendor: 'intel', name: 'Intel Iris Xe Graphics (mock)', trueSaturation: true }],
-      profiles: [
-        { id: 'win', name: 'Windows', exe: '', enabled: true, saturation: 100, contrast: 50 },
-        { id: 'cs2', name: 'Counter-Strike 2', exe: 'cs2.exe', enabled: true, saturation: 160, contrast: 60 },
-      ],
-    }),
-  )
+const emit: Listener = (message) => listeners.forEach((listener) => listener(message))
+const devHost = webview ? null : createDevHost(emit)
+
+webview?.addEventListener('message', (event) => emit(event.data))
+
+export function send(message: ToHost): void {
+  if (webview) webview.postMessage(message)
+  else devHost?.handle(message)
+}
+
+/** Registers a listener for host messages. Returns the function that removes it. */
+export function subscribe(listener: Listener): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
 }

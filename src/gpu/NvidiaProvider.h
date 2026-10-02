@@ -4,18 +4,24 @@
 #include "gpu/GammaRampProvider.h"
 #include "gpu/GpuProvider.h"
 
-// Vibrancia digital (saturacao) no driver NVIDIA via nvapi64.dll + nvapi_QueryInterface.
-// Funciona tambem em jogos em fullscreen exclusivo (nao passa pelo compositor do Windows).
-// As funcoes DVC nao sao publicas no SDK; IDs/assinaturas conferidos em jNizM/NVIDIA_NvAPI e
-// Blazzer10200/exfil. Se qualquer passo falhar, available() = false e o app usa outro provedor.
-// Contraste: gamma ramp (a NvAPI de vibrancia so cuida de saturacao).
+namespace saturei {
+
+// NVIDIA digital vibrance through nvapi64.dll (shipped with the driver) and nvapi_QueryInterface.
+// Works in exclusive fullscreen because it does not go through the Windows compositor.
+//
+// The DVC functions are not part of the public NvAPI SDK. IDs and signatures were checked against
+// community projects (jNizM/NVIDIA_NvAPI, Blazzer10200/exfil). EXPERIMENTAL: not verified on real
+// NVIDIA hardware. Any failure leaves available() == false so another provider is used instead.
+// Contrast is applied with a gamma ramp, since vibrance only covers saturation.
 class NvidiaProvider : public IGpuProvider {
  public:
   NvidiaProvider();
   ~NvidiaProvider() override;
+  NvidiaProvider(const NvidiaProvider&) = delete;
+  NvidiaProvider& operator=(const NvidiaProvider&) = delete;
+
   const char* name() const override { return "nvapi"; }
   bool available() const override { return !displays_.empty(); }
-  bool trueSaturation() const override { return true; }
   void apply(int saturation, int contrast) override;
   void reset() override;
 
@@ -28,15 +34,22 @@ class NvidiaProvider : public IGpuProvider {
     void* handle;
     int minLevel, maxLevel, defaultLevel;
   };
-  using QueryFn = void* (__cdecl*)(unsigned);
+  using QueryInterfaceFn = void*(__cdecl*)(unsigned);
   using StatusFn = int(__cdecl*)();
-  using EnumFn = int(__cdecl*)(unsigned, void**);
+  using EnumDisplayFn = int(__cdecl*)(unsigned, void**);
   using DvcFn = int(__cdecl*)(void*, unsigned, DvcInfoEx*);
 
-  bool setLevel(const Display& d, int level);
+  bool loadFunctions();
+  void enumerateDisplays(EnumDisplayFn enumDisplay);
+  bool setLevel(const Display& display, int level) const;
+
   HMODULE dll_ = nullptr;
   StatusFn unload_ = nullptr;
-  DvcFn set_ = nullptr;
+  DvcFn getDvc_ = nullptr;
+  DvcFn setDvc_ = nullptr;
+  EnumDisplayFn enumDisplay_ = nullptr;
   std::vector<Display> displays_;
   GammaRampProvider gamma_;
 };
+
+}  // namespace saturei

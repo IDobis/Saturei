@@ -58,15 +58,22 @@ npm run build
 cd ..
 
 # 2. Aplicativo
-cmake -S . -B build
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
+
+# 3. Testes (opcional)
+ctest --test-dir build -C Release
 ```
 
-O resultado fica em `build\Release\Saturei.exe` (a pasta `ui` é copiada junto).
+Troque `Visual Studio 17 2022` pela versão que você tem instalada. O resultado fica em `build\Release\Saturei.exe` (a pasta `ui` é copiada junto). Detalhes da estrutura do código em [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Dados e desinstalação
 
 Os perfis ficam em `%APPDATA%\Saturei\profiles.json`. Para desinstalar, apague a pasta do app e, se quiser, `%APPDATA%\Saturei` e `%LOCALAPPDATA%\Saturei`.
+
+## Problemas?
+
+O Saturei registra qual método de cor está em uso em `%LOCALAPPDATA%\Saturei\saturei.log`. Ajuda a diagnosticar problemas, especialmente com placas NVIDIA.
 
 ## Licença
 

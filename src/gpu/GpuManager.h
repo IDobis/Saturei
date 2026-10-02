@@ -1,21 +1,25 @@
 #pragma once
 #include <memory>
-#include <vector>
 #include "gpu/GpuProvider.h"
 
-// Detecta GPUs (DXGI) e escolhe o melhor provedor disponivel.
-// TODO: NvApiProvider (NVIDIA), AdlProvider (AMD), IgclProvider (Intel Iris Xe).
+namespace saturei {
+
+// Picks the best available provider once, at startup:
+//   NVIDIA driver (NvAPI)  ->  Windows color matrix (any GPU)  ->  gamma ramp (contrast only)
+// TODO: native AMD (ADL/ADLX) and Intel (IGCL) providers.
 class GpuManager {
  public:
   GpuManager();
   ~GpuManager();
-  const std::vector<GpuAdapter>& adapters() const { return adapters_; }
-  const char* method() const { return provider_ ? provider_->name() : "none"; }
-  bool trueSaturation() const { return provider_ && provider_->trueSaturation(); }
-  void apply(int saturation, int contrast) { if (provider_) provider_->apply(saturation, contrast); }
-  void reset() { if (provider_) provider_->reset(); }
+  GpuManager(const GpuManager&) = delete;
+  GpuManager& operator=(const GpuManager&) = delete;
+
+  void apply(int saturation, int contrast) { provider_->apply(saturation, contrast); }
+  void reset() { provider_->reset(); }
+  const char* providerName() const { return provider_->name(); }
 
  private:
-  std::vector<GpuAdapter> adapters_;
   std::unique_ptr<IGpuProvider> provider_;
 };
+
+}  // namespace saturei

@@ -58,15 +58,22 @@ npm run build
 cd ..
 
 # 2. Application
-cmake -S . -B build
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
 cmake --build build --config Release
+
+# 3. Tests (optional)
+ctest --test-dir build -C Release
 ```
 
-The result is `build\Release\Saturei.exe` (the `ui` folder is copied next to it).
+Replace `Visual Studio 17 2022` with the version you have installed. The result is `build\Release\Saturei.exe` (the `ui` folder is copied next to it). See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how the code is organized.
 
 ## Data and uninstalling
 
 Profiles are stored in `%APPDATA%\Saturei\profiles.json`. To uninstall, delete the app folder and, if you want, `%APPDATA%\Saturei` and `%LOCALAPPDATA%\Saturei`.
+
+## Troubleshooting
+
+Saturei records which color method is in use in `%LOCALAPPDATA%\Saturei\saturei.log`. It helps diagnose problems, especially on NVIDIA cards.
 
 ## License
 
